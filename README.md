@@ -33,6 +33,16 @@ Hablas español al micrófono físico. Gemini Live Translate devuelve audio en i
 
 5. En Teams → Configuración → Dispositivos → Micrófono, selecciona **CABLE Output** (grabación). Mantén tus audífonos como altavoz de Teams. Haz una llamada de prueba y habla en español. Para finalizar, pulsa `Ctrl+C` en PowerShell.
 
+## Interfaz gráfica
+
+Con `GEMINI_API_KEY` configurada en el entorno, inicia la aplicación de escritorio con:
+
+```powershell
+python translator_gui.py
+```
+
+La ventana permite elegir el micrófono y la salida, iniciar o detener la traducción y ver los fragmentos de transcripción en español e inglés. En Teams selecciona **CABLE Output** como micrófono. También se puede seguir usando `translator.py` desde la línea de comandos.
+
 ## Comprobación y límites
 
 - La entrada a Gemini es PCM mono de 16 kHz en bloques de 100 ms; la salida es PCM mono de 24 kHz. El programa verifica que Windows admita ambas frecuencias en los dispositivos escogidos.

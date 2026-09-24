@@ -10,6 +10,7 @@ import queue
 import sys
 import threading
 from dataclasses import dataclass
+from typing import Callable
 
 import sounddevice as sd
 from google import genai
@@ -23,6 +24,16 @@ OUTPUT_FRAMES = 480  # 20 ms playback blocks.
 MAX_INPUT_CHUNKS = 20
 MAX_OUTPUT_SECONDS = 3
 MAX_OUTPUT_BYTES = OUTPUT_RATE * 2 * MAX_OUTPUT_SECONDS
+EventCallback = Callable[[str, str], None]
+
+
+def emit_event(callback: EventCallback | None, kind: str, message: str) -> None:
+    if callback:
+        callback(kind, message)
+    elif kind == "transcript":
+        print(f"\n{message}", flush=True)
+    elif kind in {"status", "warning", "error"}:
+        print(message, file=sys.stderr if kind in {"warning", "error"} else sys.stdout, flush=True)
 
 
 @dataclass(frozen=True)
@@ -53,8 +64,9 @@ def validate_devices(devices: Devices) -> None:
 
 
 class AudioBridge:
-    def __init__(self, loop: asyncio.AbstractEventLoop):
+    def __init__(self, loop: asyncio.AbstractEventLoop, on_event: EventCallback | None = None):
         self.loop = loop
+        self.on_event = on_event
         self.input_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=MAX_INPUT_CHUNKS)
         self.output_queue: queue.Queue[bytes] = queue.Queue()
         self.output_bytes = 0
@@ -65,7 +77,7 @@ class AudioBridge:
 
     def input_callback(self, indata, frames, time_info, status) -> None:
         if status:
-            print(f"\nInput status: {status}", file=sys.stderr)
+            emit_event(self.on_event, "warning", f"Entrada de audio: {status}")
         data = bytes(indata)
 
         def enqueue() -> None:
@@ -96,7 +108,7 @@ class AudioBridge:
 
     def output_callback(self, outdata, frames, time_info, status) -> None:
         if status:
-            print(f"\nOutput status: {status}", file=sys.stderr)
+            emit_event(self.on_event, "warning", f"Salida de audio: {status}")
         requested = frames * 2  # mono int16
         with self.playback_lock:
             while len(self.pending) < requested:
@@ -121,7 +133,9 @@ async def send_audio(session, bridge: AudioBridge) -> None:
         )
 
 
-async def receive_audio(session, bridge: AudioBridge, show_text: bool) -> None:
+async def receive_audio(
+    session, bridge: AudioBridge, show_text: bool, on_event: EventCallback | None
+) -> None:
     async for response in session.receive():
         content = response.server_content
         if content is None:
@@ -132,7 +146,7 @@ async def receive_audio(session, bridge: AudioBridge, show_text: bool) -> None:
                 ("EN", content.output_transcription),
             ):
                 if transcript and transcript.text:
-                    print(f"\n{label}: {transcript.text}", flush=True)
+                    emit_event(on_event, "transcript", f"{label}: {transcript.text}")
         if content.model_turn:
             for part in content.model_turn.parts:
                 if part.inline_data and part.inline_data.data:
@@ -141,12 +155,24 @@ async def receive_audio(session, bridge: AudioBridge, show_text: bool) -> None:
     raise ConnectionError("Gemini closed the translation stream")
 
 
-async def run(devices: Devices, show_text: bool) -> None:
+async def wait_for_stop(stop_event: threading.Event) -> None:
+    while not stop_event.is_set():
+        await asyncio.sleep(0.1)
+
+
+async def run(
+    devices: Devices,
+    show_text: bool,
+    on_event: EventCallback | None = None,
+    stop_event: threading.Event | None = None,
+) -> None:
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise ValueError("Set GEMINI_API_KEY in your environment before running")
     validate_devices(devices)
-    bridge = AudioBridge(asyncio.get_running_loop())
+    loop = asyncio.get_running_loop()
+    bridge = AudioBridge(loop, on_event)
+    stop_event = stop_event or threading.Event()
     client = genai.Client(api_key=key, http_options={"api_version": "v1beta"})
     config = types.LiveConnectConfig(
         response_modalities=["AUDIO"],
@@ -156,7 +182,7 @@ async def run(devices: Devices, show_text: bool) -> None:
             target_language_code="en", echo_target_language=False
         ),
     )
-    print("Connecting to Gemini Live Translate...")
+    emit_event(on_event, "status", "Conectando con Gemini Live Translate…")
     try:
         async with client.aio.live.connect(model=MODEL, config=config) as session:
             with sd.RawOutputStream(
@@ -168,22 +194,31 @@ async def run(devices: Devices, show_text: bool) -> None:
                 dtype="int16", device=devices.input_index, callback=bridge.input_callback,
                 latency="low",
             ):
-                print("Live: speak Spanish. Teams receives translated English. Ctrl+C to stop.")
+                emit_event(on_event, "status", "Activo: habla en español; Teams recibe la traducción en inglés.")
                 sender = asyncio.create_task(send_audio(session, bridge))
-                receiver = asyncio.create_task(receive_audio(session, bridge, show_text))
+                receiver = asyncio.create_task(
+                    receive_audio(session, bridge, show_text, on_event)
+                )
+                stopper = asyncio.create_task(wait_for_stop(stop_event))
                 try:
                     done, _ = await asyncio.wait(
-                        (sender, receiver), return_when=asyncio.FIRST_COMPLETED
+                        (sender, receiver, stopper), return_when=asyncio.FIRST_COMPLETED
                     )
                     for task in done:
-                        await task
+                        if task is not stopper:
+                            await task
                 finally:
-                    for task in (sender, receiver):
+                    for task in (sender, receiver, stopper):
                         task.cancel()
-                    await asyncio.gather(sender, receiver, return_exceptions=True)
+                    await asyncio.gather(sender, receiver, stopper, return_exceptions=True)
     finally:
+        emit_event(on_event, "stopped", "Traducción detenida.")
         if bridge.dropped_input or bridge.dropped_output:
-            print(f"Dropped chunks: input={bridge.dropped_input}, output={bridge.dropped_output}")
+            emit_event(
+                on_event,
+                "warning",
+                f"Bloques descartados: entrada={bridge.dropped_input}, salida={bridge.dropped_output}",
+            )
 
 
 def main() -> None:
