@@ -1,0 +1,2 @@
+google-genai>=1.0,<3
+sounddevice>=0.5,<1

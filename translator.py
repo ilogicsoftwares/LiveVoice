@@ -1,0 +1,210 @@
+"""Microphone -> Gemini Live Translate -> chosen playback device (virtual cable)."""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import contextlib
+import os
+import queue
+import sys
+import threading
+from dataclasses import dataclass
+
+import sounddevice as sd
+from google import genai
+from google.genai import types
+
+MODEL = "gemini-3.5-live-translate-preview"
+INPUT_RATE = 16000
+OUTPUT_RATE = 24000
+INPUT_FRAMES = 1600  # 100 ms, per Google's translation API guidance.
+OUTPUT_FRAMES = 480  # 20 ms playback blocks.
+MAX_INPUT_CHUNKS = 20
+MAX_OUTPUT_SECONDS = 3
+MAX_OUTPUT_BYTES = OUTPUT_RATE * 2 * MAX_OUTPUT_SECONDS
+
+
+@dataclass(frozen=True)
+class Devices:
+    input_index: int
+    output_index: int
+
+
+def list_devices() -> None:
+    print("ID   IN OUT   NAME")
+    for index, device in enumerate(sd.query_devices()):
+        print(f"{index:<4} {device['max_input_channels']:<2} {device['max_output_channels']:<3}   {device['name']}")
+    print("\nChoose your physical microphone as --input and CABLE Input (playback) as --output.")
+    print("In Teams select CABLE Output (recording) as your microphone.")
+
+
+def validate_devices(devices: Devices) -> None:
+    for index, direction, rate in (
+        (devices.input_index, "input", INPUT_RATE),
+        (devices.output_index, "output", OUTPUT_RATE),
+    ):
+        info = sd.query_devices(index)
+        if info[f"max_{direction}_channels"] < 1:
+            raise ValueError(f"Device {index} has no {direction} channel: {info['name']}")
+        getattr(sd, f"check_{direction}_settings")(
+            device=index, channels=1, dtype="int16", samplerate=rate
+        )
+
+
+class AudioBridge:
+    def __init__(self, loop: asyncio.AbstractEventLoop):
+        self.loop = loop
+        self.input_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=MAX_INPUT_CHUNKS)
+        self.output_queue: queue.Queue[bytes] = queue.Queue()
+        self.output_bytes = 0
+        self.pending = bytearray()
+        self.playback_lock = threading.Lock()
+        self.dropped_input = 0
+        self.dropped_output = 0
+
+    def input_callback(self, indata, frames, time_info, status) -> None:
+        if status:
+            print(f"\nInput status: {status}", file=sys.stderr)
+        data = bytes(indata)
+
+        def enqueue() -> None:
+            if self.input_queue.full():
+                with contextlib.suppress(asyncio.QueueEmpty):
+                    self.input_queue.get_nowait()
+                    self.dropped_input += 1
+            self.input_queue.put_nowait(data)
+
+        self.loop.call_soon_threadsafe(enqueue)
+
+    def add_output(self, data: bytes) -> None:
+        if not data:
+            return
+        with self.playback_lock:
+            while self.output_bytes + len(self.pending) + len(data) > MAX_OUTPUT_BYTES:
+                try:
+                    old = self.output_queue.get_nowait()
+                    self.output_bytes -= len(old)
+                except queue.Empty:
+                    # A single oversized chunk is unusual; keep its latest samples.
+                    data = data[-MAX_OUTPUT_BYTES:]
+                    self.pending.clear()
+                    break
+                self.dropped_output += 1
+            self.output_queue.put_nowait(data)
+            self.output_bytes += len(data)
+
+    def output_callback(self, outdata, frames, time_info, status) -> None:
+        if status:
+            print(f"\nOutput status: {status}", file=sys.stderr)
+        requested = frames * 2  # mono int16
+        with self.playback_lock:
+            while len(self.pending) < requested:
+                try:
+                    chunk = self.output_queue.get_nowait()
+                    self.output_bytes -= len(chunk)
+                    self.pending.extend(chunk)
+                except queue.Empty:
+                    break
+            available = min(requested, len(self.pending))
+            outdata[:available] = self.pending[:available]
+            if available < requested:
+                outdata[available:requested] = bytes(requested - available)
+            del self.pending[:available]
+
+
+async def send_audio(session, bridge: AudioBridge) -> None:
+    while True:
+        chunk = await bridge.input_queue.get()
+        await session.send_realtime_input(
+            audio=types.Blob(data=chunk, mime_type="audio/pcm;rate=16000")
+        )
+
+
+async def receive_audio(session, bridge: AudioBridge, show_text: bool) -> None:
+    async for response in session.receive():
+        content = response.server_content
+        if content is None:
+            continue
+        if show_text:
+            for label, transcript in (
+                ("ES", content.input_transcription),
+                ("EN", content.output_transcription),
+            ):
+                if transcript and transcript.text:
+                    print(f"\n{label}: {transcript.text}", flush=True)
+        if content.model_turn:
+            for part in content.model_turn.parts:
+                if part.inline_data and part.inline_data.data:
+                    bridge.add_output(part.inline_data.data)
+        # Translation is continuous; do not discard queued audio at turn_complete.
+    raise ConnectionError("Gemini closed the translation stream")
+
+
+async def run(devices: Devices, show_text: bool) -> None:
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        raise ValueError("Set GEMINI_API_KEY in your environment before running")
+    validate_devices(devices)
+    bridge = AudioBridge(asyncio.get_running_loop())
+    client = genai.Client(api_key=key, http_options={"api_version": "v1beta"})
+    config = types.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        translation_config=types.TranslationConfig(
+            target_language_code="en", echo_target_language=False
+        ),
+    )
+    print("Connecting to Gemini Live Translate...")
+    try:
+        async with client.aio.live.connect(model=MODEL, config=config) as session:
+            with sd.RawOutputStream(
+                samplerate=OUTPUT_RATE, blocksize=OUTPUT_FRAMES, channels=1,
+                dtype="int16", device=devices.output_index, callback=bridge.output_callback,
+                latency="low",
+            ), sd.RawInputStream(
+                samplerate=INPUT_RATE, blocksize=INPUT_FRAMES, channels=1,
+                dtype="int16", device=devices.input_index, callback=bridge.input_callback,
+                latency="low",
+            ):
+                print("Live: speak Spanish. Teams receives translated English. Ctrl+C to stop.")
+                sender = asyncio.create_task(send_audio(session, bridge))
+                receiver = asyncio.create_task(receive_audio(session, bridge, show_text))
+                try:
+                    done, _ = await asyncio.wait(
+                        (sender, receiver), return_when=asyncio.FIRST_COMPLETED
+                    )
+                    for task in done:
+                        await task
+                finally:
+                    for task in (sender, receiver):
+                        task.cancel()
+                    await asyncio.gather(sender, receiver, return_exceptions=True)
+    finally:
+        if bridge.dropped_input or bridge.dropped_output:
+            print(f"Dropped chunks: input={bridge.dropped_input}, output={bridge.dropped_output}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--list-devices", action="store_true")
+    parser.add_argument("--input", type=int, help="Physical microphone device ID")
+    parser.add_argument("--output", type=int, help="Virtual cable playback device ID")
+    parser.add_argument("--no-text", action="store_true", help="Hide transcripts")
+    args = parser.parse_args()
+    if args.list_devices:
+        list_devices()
+        return
+    if args.input is None or args.output is None:
+        parser.error("--input and --output are required; use --list-devices first")
+    try:
+        asyncio.run(run(Devices(args.input, args.output), not args.no_text))
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    except (ValueError, sd.PortAudioError, ConnectionError) as exc:
+        parser.exit(1, f"Error: {exc}\n")
+
+
+if __name__ == "__main__":
+    main()
