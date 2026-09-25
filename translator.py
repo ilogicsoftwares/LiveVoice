@@ -209,6 +209,16 @@ async def run(
     if target_language not in LANGUAGE_NAMES:
         raise ValueError(f"Unsupported target language: {target_language}")
     key = os.environ.get("GEMINI_API_KEY")
+    if not key and sys.platform == "win32":
+        # setx writes to the user registry; an existing Explorer process may
+        # launch the installed app before its environment has been refreshed.
+        import winreg
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as user_environment:
+                key = winreg.QueryValueEx(user_environment, "GEMINI_API_KEY")[0]
+        except FileNotFoundError:
+            pass
     if not key:
         raise ValueError("Set GEMINI_API_KEY in your environment before running")
     validate_devices(devices)

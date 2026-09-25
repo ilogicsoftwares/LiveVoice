@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import queue
 import subprocess
@@ -155,8 +156,15 @@ class LiveVoiceWindow:
         except ValueError:
             messagebox.showerror("Pausa inválida", "La pausa debe ser un número entero entre 100 y 1500 ms.")
             return
-        command = [
-            sys.executable, "-u", str(Path(__file__).with_name("live_voice.py")),
+        if getattr(sys, "frozen", False):
+            engine = Path(sys.executable).parent / "engine" / "WisperLiveVoiceEngine.exe"
+            if not engine.is_file():
+                messagebox.showerror("Motor no encontrado", f"No se encontró el motor de Whisper: {engine}")
+                return
+            command = [str(engine)]
+        else:
+            command = [sys.executable, "-u", str(Path(__file__).with_name("live_voice.py"))]
+        command += [
             "--input", str(self.inputs[self.input_var.get()]),
             "--output", str(self.outputs[self.output_var.get()]),
             "--voice-id", voice,
@@ -245,7 +253,16 @@ class LiveVoiceWindow:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--voice-id", default="", help="ID de voz inicial de ElevenLabs")
+    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "")
+    if not voice_id and sys.platform == "win32":
+        import winreg
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as user_environment:
+                voice_id = winreg.QueryValueEx(user_environment, "ELEVENLABS_VOICE_ID")[0]
+        except FileNotFoundError:
+            pass
+    parser.add_argument("--voice-id", default=voice_id, help="ID de voz inicial de ElevenLabs")
     parser.add_argument("--tts-model", choices=("flash", "v3"), default="flash",
                         help="Modelo inicial de ElevenLabs")
     args = parser.parse_args()

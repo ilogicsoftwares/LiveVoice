@@ -300,6 +300,7 @@ async def run(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list-devices", action="store_true")
+    parser.add_argument("--self-test", action="store_true", help="Carga Whisper en GPU y prueba una inferencia sin usar el micrófono")
     parser.add_argument("--input", type=int, help="Índice del micrófono físico")
     parser.add_argument("--output", type=int, help="Índice de CABLE Input u otra salida")
     parser.add_argument("--voice-id", help="ID de voz de ElevenLabs")
@@ -314,6 +315,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.list_devices:
         list_devices()
+        return
+    if args.self_test:
+        if ctranslate2.get_cuda_device_count() < 1:
+            parser.exit(1, "Error: no se detectó una GPU CUDA\n")
+        model = WhisperModel(args.whisper_model, device="cuda", compute_type="float16")
+        segments, _ = model.transcribe(
+            np.zeros(INPUT_RATE, dtype=np.float32), language="es", task="translate", beam_size=1
+        )
+        list(segments)
+        print(f"GPU OK: Whisper {args.whisper_model}")
         return
     if args.input is None or args.output is None or not args.voice_id:
         parser.error("--input, --output y --voice-id son obligatorios; usa --list-devices")

@@ -4,6 +4,19 @@ WisperLiveVoice toma audio del micrófono, lo traduce **al inglés** con Whisper
 
 Whisper trabaja por frases: espera 600 ms de silencio por defecto para traducir y conserva la frase completa para darle contexto al modelo. Hay un límite de seguridad de 8 s para habla sin pausas. La primera ejecución descarga el modelo y puede tardar más. La voz se reproduce en la salida seleccionada, que puede ser el cable virtual en vez de tus audífonos.
 
+## Instalador de Windows (.exe)
+
+Descarga `WisperLiveVoice-Setup-*-win64.exe` desde el [último release](https://github.com/ilogicsoftwares/LiveVoice/releases/latest), ejecútalo y abre **WisperLiveVoice** desde el menú Inicio. El instalador incluye Python, las dependencias de la aplicación y las bibliotecas CUDA necesarias; **no necesitas crear `.venv` ni instalar CUDA Toolkit** para esta opción. Sí necesitas una GPU NVIDIA con controlador compatible y [VB-CABLE](../README.md#3-install-the-vb-cable-virtual-microphone-on-windows) si vas a enviar la voz a Teams.
+
+Configura la clave de API y, opcionalmente, el ID de voz como variables de usuario de Windows:
+
+```powershell
+setx ELEVENLABS_API_KEY "TU_TOKEN_DE_ELEVENLABS"
+setx ELEVENLABS_VOICE_ID "TU_VOICE_ID"
+```
+
+Abre de nuevo la aplicación después de configurar las variables. En la ventana selecciona tu micrófono físico y la salida; para Teams usa **CABLE Input** como salida y **CABLE Output** como micrófono de Teams. También puedes editar el ID de voz en la ventana. En el primer inicio, Whisper descarga automáticamente `large-v3` (alrededor de 3 GB); requiere Internet y espacio libre. Los pasos numerados siguientes son para ejecutar el proyecto **desde el código fuente**.
+
 ## 1. Requisitos
 
 - Windows 10/11 de 64 bits y [Python 3.12 x64](https://www.python.org/downloads/) (versión probada). Instala el lanzador `py` si el instalador lo ofrece.

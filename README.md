@@ -2,13 +2,28 @@
 
 LiveVoice offers **two independent versions** for translating your speech during a call. Both capture audio from a physical microphone and can send the translated voice to **CABLE Input** from [VB-CABLE](https://vb-audio.com/Cable/). In Teams, select **CABLE Output** as the microphone and use headphones to prevent call audio from feeding back into your physical microphone.
 
+Download the Windows installers from the [latest release](https://github.com/ilogicsoftwares/LiveVoice/releases/latest). Each installer includes the application and its Python dependencies; you do not need to install Python or run `pip` to use it. If you want to run from source, follow the source installation steps below.
+
 ## 1. Google Gemini Live Translate
 
 This version uses **Gemini Live Translate** for both translation and speech generation. The default target language is English; you can also choose other languages supported by Gemini. It requires an internet connection and the `GEMINI_API_KEY` environment variable. **An NVIDIA GPU is not required.**
 
 Files: `translator.py` (command line), `translator_gui.py` (desktop window), `start_cli.bat`, and `start_gui.bat`.
 
-### Installation
+### Install the Windows app
+
+1. Download `GeminiLiveVoice-Setup-*-win64.exe` from the [latest release](https://github.com/ilogicsoftwares/LiveVoice/releases/latest) and run it. Launch **LiveVoice Gemini** from the Start menu.
+2. Set your Google API key as a Windows user environment variable:
+
+   ```powershell
+   setx GEMINI_API_KEY "YOUR_GEMINI_API_KEY"
+   ```
+
+3. In the app, select your physical microphone, output device, and target language. For Teams, [install VB-CABLE](#3-install-the-vb-cable-virtual-microphone-on-windows) and select **CABLE Input** as the output.
+
+The app reads the Windows user variable directly, so you can reopen it after `setx` without reinstalling. An internet connection and access to the Gemini Live Translate API are required.
+
+### Run from source
 
 Install Python 3.11 or later and VB-CABLE. In PowerShell, from the repository root:
 
@@ -52,7 +67,22 @@ This version uses **Whisper `large-v3` on an NVIDIA GPU** to translate Spanish s
 
 Files: `WisperLiveVoice/live_voice.py` (command line), `WisperLiveVoice/live_voice_gui.py` (desktop window), `start_wisper_cli.bat`, and `start_wisper_gui.bat`.
 
-### Installation
+### Install the Windows app
+
+1. Download `WisperLiveVoice-Setup-*-win64.exe` from the [latest release](https://github.com/ilogicsoftwares/LiveVoice/releases/latest) and run it. Launch **WisperLiveVoice** from the Start menu.
+2. Set your ElevenLabs API key and a voice ID from your own ElevenLabs account as Windows user environment variables:
+
+   ```powershell
+   setx ELEVENLABS_API_KEY "YOUR_ELEVENLABS_API_KEY"
+   setx ELEVENLABS_VOICE_ID "YOUR_VOICE_ID"
+   ```
+
+   The voice ID can also be entered or changed in the app.
+3. In the app, select your physical microphone and output device. For Teams, [install VB-CABLE](#3-install-the-vb-cable-virtual-microphone-on-windows) and select **CABLE Input** as the output.
+
+The installer includes the Python dependencies and CUDA runtime libraries, so a separate Python or CUDA Toolkit installation is not needed. A compatible **NVIDIA GPU and driver** are still required. On the first run, Whisper downloads the `large-v3` model (about 3 GB) automatically; allow time, internet access, and disk space for that download. The app uses the cached model on later runs.
+
+### Run from source
 
 Follow the [detailed WisperLiveVoice setup guide (Spanish)](WisperLiveVoice/INSTALACION.md) to install Python 3.12, CUDA/cuDNN, and VB-CABLE, and to verify that Whisper runs on the GPU. From the repository root:
 
