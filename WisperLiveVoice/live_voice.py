@@ -32,6 +32,12 @@ ELEVENLABS_MODELS = {
     "flash": "eleven_flash_v2_5",
     "v3": "eleven_v3_conversational",
 }
+FLASH_VOICE_SETTINGS = {
+    "speed": 0.73,
+    "stability": 0.30,
+    "similarity_boost": 1.0,
+    "style": 0.0,
+}
 
 
 def list_devices() -> None:
@@ -158,8 +164,13 @@ def synthesis_request(text: str, voice_id: str, model_choice: str) -> tuple[str,
     query = {"model_id": model_id, "output_format": "pcm_24000"}
     if model_choice == "flash":
         query["auto_mode"] = "true"
+        query["language_code"] = "es"
         path = f"text-to-speech/{quote(voice_id, safe='')}/stream-input"
-        messages = [{"text": " "}, {"text": text, "flush": True}, {"text": ""}]
+        messages = [
+            {"text": " ", "voice_settings": FLASH_VOICE_SETTINGS},
+            {"text": text, "flush": True},
+            {"text": ""},
+        ]
     else:
         path = "text-to-dialogue/stream-input"
         messages = [

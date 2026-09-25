@@ -87,7 +87,7 @@ El lanzador de consola usa por defecto entrada `14`, salida `21` y el ID de voz 
 
 ### Elegir el modelo de voz
 
-La opción predeterminada es **Flash v2.5** (`--tts-model flash`), que prioriza la latencia. Para probar una voz más expresiva usa **Eleven v3 Conversational** (`--tts-model v3`):
+La opción predeterminada es **Flash v2.5** (`--tts-model flash`). Usa los ajustes de voz probados para Richard: velocidad `0.73`, estabilidad `0.30`, similitud `1.0` y exageración de estilo `0`. La solicitud fija `language_code=es` aunque Whisper envíe texto traducido al inglés; esto puede influir en la pronunciación inglesa. Para probar una voz más expresiva usa **Eleven v3 Conversational** (`--tts-model v3`), que conserva sus ajustes independientes:
 
 ```powershell
 .\start_wisper_cli.bat --input 1 --output 8 --voice-id TU_VOICE_ID --tts-model v3
