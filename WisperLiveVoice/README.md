@@ -7,14 +7,15 @@ Usa `large-v3` por defecto para priorizar la precisión de traducción. Whisper 
 ## Instalación (Windows, PowerShell)
 
 ```powershell
-cd WisperLiveVoice
+cd E:\repositories\LiveVoice
 py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r WisperLiveVoice\requirements.txt
 $env:ELEVENLABS_API_KEY = "TU_TOKEN"
-python live_voice.py --list-devices
-python live_voice.py --input 14 --output 21 --voice-id ID_DE_TU_VOZ
+.\.venv\Scripts\python.exe WisperLiveVoice\live_voice.py --list-devices
+start_wisper_cli.bat
 ```
+
+Desde la raíz también puedes iniciar la ventana con `start_wisper_gui.bat`. Ambos lanzadores usan por defecto la voz `cEIu6qe1v5XA6Xvj3g1D`; el de consola usa entrada 14 y salida 21. Puedes reemplazar estos valores pasando las opciones normales después del `.bat`, por ejemplo `start_wisper_cli.bat --input 1 --output 8 --voice-id OTRA_VOZ`. En la ventana, la voz y los dispositivos se pueden cambiar antes de iniciar.
 
 Para ver la transcripción original y la traducción en dos paneles, abre la interfaz gráfica:
 
