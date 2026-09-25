@@ -1,93 +1,93 @@
 # LiveVoice
 
-LiveVoice ofrece **dos versiones independientes** para traducir tu voz durante una llamada. Ambas toman audio del micrófono físico y pueden enviar la voz traducida a **CABLE Input** de [VB-CABLE](https://vb-audio.com/Cable/). En Teams selecciona **CABLE Output** como micrófono y usa audífonos para evitar que el audio de la llamada vuelva a entrar por el micrófono físico.
+LiveVoice offers **two independent versions** for translating your speech during a call. Both capture audio from a physical microphone and can send the translated voice to **CABLE Input** from [VB-CABLE](https://vb-audio.com/Cable/). In Teams, select **CABLE Output** as the microphone and use headphones to prevent call audio from feeding back into your physical microphone.
 
 ## 1. Google Gemini Live Translate
 
-Esta versión usa **Gemini Live Translate** para traducir y generar la voz. El idioma destino predeterminado es inglés; también puedes elegir otros idiomas admitidos por Gemini. Necesita Internet y la variable de entorno `GEMINI_API_KEY`. **No requiere GPU NVIDIA.**
+This version uses **Gemini Live Translate** for both translation and speech generation. The default target language is English; you can also choose other languages supported by Gemini. It requires an internet connection and the `GEMINI_API_KEY` environment variable. **An NVIDIA GPU is not required.**
 
-Archivos: `translator.py` (consola), `translator_gui.py` (ventana), `start_cli.bat` y `start_gui.bat`.
+Files: `translator.py` (command line), `translator_gui.py` (desktop window), `start_cli.bat`, and `start_gui.bat`.
 
-### Instalación
+### Installation
 
-Instala Python 3.11 o posterior y VB-CABLE. Desde PowerShell, en la raíz del repositorio:
+Install Python 3.11 or later and VB-CABLE. In PowerShell, from the repository root:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-setx GEMINI_API_KEY "TU_API_KEY_DE_GEMINI"
+setx GEMINI_API_KEY "YOUR_GEMINI_API_KEY"
 ```
 
-Abre una terminal nueva después de `setx`. Para encontrar los números de tu micrófono físico y de **CABLE Input**:
+Open a new terminal after running `setx`. List audio devices to find the IDs of your physical microphone and **CABLE Input**:
 
 ```powershell
 .\.venv\Scripts\python.exe translator.py --list-devices
 ```
 
-### Ejecución
+### Run
 
-Para abrir la ventana:
+Open the desktop window:
 
 ```powershell
 .\start_gui.bat
 ```
 
-Para usar la consola, reemplaza los índices por los de tu equipo:
+Or run the command line version, replacing the example device IDs with yours:
 
 ```powershell
 .\start_cli.bat --input 1 --output 5
 ```
 
-Los índices de audio dependen de los dispositivos conectados; usa los que obtuviste con `--list-devices`. En la GUI puedes elegir los dispositivos y el idioma destino. Para cambiar el idioma en consola, por ejemplo a francés:
+Audio device IDs depend on your system; use the IDs returned by `--list-devices`. The desktop window lets you select the devices and target language. To translate into French from the command line, for example:
 
 ```powershell
 .\start_cli.bat --input 1 --output 5 --target-language fr
 ```
 
-Consulta los idiomas disponibles con `.\.venv\Scripts\python.exe translator.py --list-languages`. La ventana muestra las transcripciones de entrada y salida. La voz traducida sale por el dispositivo que elegiste; si es CABLE Input, escúchala con una llamada de prueba de Teams. Gemini requiere acceso al modelo y su API puede generar costes.
+List available target languages with `.\.venv\Scripts\python.exe translator.py --list-languages`. The desktop window shows input and output transcripts. The translated voice plays through the selected output device; if you choose CABLE Input, use a Teams test call to hear what other participants receive. Access to the Gemini model is required, and API usage may incur charges.
 
 ## 2. WisperLiveVoice: Whisper + ElevenLabs
 
-Esta versión usa **Whisper `large-v3` en una GPU NVIDIA** para traducir la voz del español al inglés y **ElevenLabs** para generar la voz. Necesita Internet, CUDA con las bibliotecas indicadas en la guía y la variable de entorno `ELEVENLABS_API_KEY`. El ID de voz es un parámetro o un campo de la ventana. **No usa `GEMINI_API_KEY`.**
+This version uses **Whisper `large-v3` on an NVIDIA GPU** to translate Spanish speech into English and **ElevenLabs** to generate the voice. It requires an internet connection, the CUDA libraries described in the setup guide, and the `ELEVENLABS_API_KEY` environment variable. The voice ID is supplied as a command line option or entered in the desktop window. **This version does not use `GEMINI_API_KEY`.**
 
-Archivos: `WisperLiveVoice/live_voice.py` (consola), `WisperLiveVoice/live_voice_gui.py` (ventana), `start_wisper_cli.bat` y `start_wisper_gui.bat`.
+Files: `WisperLiveVoice/live_voice.py` (command line), `WisperLiveVoice/live_voice_gui.py` (desktop window), `start_wisper_cli.bat`, and `start_wisper_gui.bat`.
 
-### Instalación
+### Installation
 
-Sigue la **[guía completa de WisperLiveVoice](WisperLiveVoice/INSTALACION.md)** para instalar Python 3.12, CUDA/cuDNN y VB-CABLE, además de comprobar que Whisper funciona en GPU. Desde la raíz del repositorio:
+Follow the [detailed WisperLiveVoice setup guide (Spanish)](WisperLiveVoice/INSTALACION.md) to install Python 3.12, CUDA/cuDNN, and VB-CABLE, and to verify that Whisper runs on the GPU. From the repository root:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r WisperLiveVoice\requirements.txt
-setx ELEVENLABS_API_KEY "TU_TOKEN_DE_ELEVENLABS"
+setx ELEVENLABS_API_KEY "YOUR_ELEVENLABS_API_KEY"
 ```
 
-Si ya creaste `.venv` para Gemini con una versión de Python compatible, puedes omitir la primera línea e instalar las dependencias adicionales en el mismo entorno. Abre una terminal nueva después de `setx`. Elige una voz de tu cuenta de ElevenLabs en la ventana o pásala con `--voice-id` en consola.
+If you already created `.venv` for Gemini with a compatible Python version, you can skip the first command and install the additional dependencies in the same environment. Open a new terminal after running `setx`. Choose a voice from your ElevenLabs account in the desktop window or pass its ID with `--voice-id` on the command line.
 
-### Ejecución
+### Run
 
-Para abrir la ventana y seleccionar micrófono, salida, voz y modelo de ElevenLabs:
+Open the desktop window to select the microphone, output device, voice, and ElevenLabs model:
 
 ```powershell
 .\start_wisper_gui.bat
 ```
 
-Para la consola, averigua primero los índices de dispositivos y después sustitúyelos junto con el ID de voz:
+For the command line version, list audio devices first, then replace the example IDs and voice ID with yours:
 
 ```powershell
 .\.venv\Scripts\python.exe WisperLiveVoice\live_voice.py --list-devices
-.\start_wisper_cli.bat --input 1 --output 5 --voice-id TU_VOICE_ID
+.\start_wisper_cli.bat --input 1 --output 5 --voice-id YOUR_VOICE_ID
 ```
 
-El modelo de voz predeterminado es **ElevenLabs Flash v2.5**. Puedes elegir **v3 Conversational** en la ventana o añadir `--tts-model v3` al comando de consola. Whisper espera una pausa de 600 ms por defecto antes de enviar cada frase; la GUI permite ajustar **Pausa para enviar** y la consola acepta `--pause-ms`. Una pausa demasiado corta puede reducir la precisión de la traducción. La [guía de instalación](WisperLiveVoice/INSTALACION.md) incluye ajustes de sensibilidad, solución de problemas y la configuración de Teams.
+The default voice model is **ElevenLabs Flash v2.5**. Select **v3 Conversational** in the desktop window or add `--tts-model v3` to the command line. Whisper waits for a 600 ms pause by default before sending each phrase. You can change this with the **Pausa para enviar** (pause before sending) field in the desktop window or with `--pause-ms` on the command line. A shorter pause may reduce translation accuracy. The [detailed setup guide (Spanish)](WisperLiveVoice/INSTALACION.md) covers microphone sensitivity, troubleshooting, and Teams setup.
 
-## 3. Instalar el micrófono virtual VB-CABLE en Windows
+## 3. Install the VB-CABLE virtual microphone on Windows
 
-Este paso sirve para **ambas versiones**. VB-CABLE crea dos dispositivos: **CABLE Input** recibe el audio que reproduce LiveVoice y **CABLE Output** lo presenta como micrófono a Teams. [VB-Audio explica esa conexión en su sitio oficial](https://vb-audio.com/Cable/).
+These steps apply to **both versions**. VB-CABLE creates two devices: **CABLE Input** receives the audio played by LiveVoice, and **CABLE Output** makes that audio available to Teams as a microphone. [VB-Audio describes this connection on its official site](https://vb-audio.com/Cable/).
 
-1. Descarga el paquete **VB-CABLE Virtual Audio Device** desde la [página oficial de VB-Audio](https://vb-audio.com/Cable/). Elige el paquete de Windows.
-2. Extrae **todos** los archivos del ZIP a una carpeta local. No ejecutes el instalador desde dentro del ZIP.
-3. En Windows de 64 bits, haz clic derecho en `VBCABLE_Setup_x64.exe` y selecciona **Ejecutar como administrador**. En Windows de 32 bits usa `VBCABLE_Setup.exe`. Sigue el instalador y reinicia el equipo. [Manual oficial de instalación](https://vb-audio.com/Cable/VBCABLE_ReferenceManual.pdf).
-4. Abre **Configuración de Windows → Sistema → Sonido** y comprueba que aparezcan **CABLE Input** entre los dispositivos de salida/reproducción y **CABLE Output** entre los de entrada/grabación. Si Windows cambió los dispositivos predeterminados, vuelve a seleccionar tus audífonos y tu micrófono físico.
-5. En la versión de LiveVoice que uses, selecciona tu **micrófono físico** como entrada y **CABLE Input** como salida. En **Teams → Configuración → Dispositivos**, selecciona **CABLE Output** como micrófono y tus audífonos como altavoz.
-6. Haz una llamada de prueba en Teams. Si no llega audio, confirma que la aplicación envía la voz a CABLE Input y que Teams escucha CABLE Output. No elijas CABLE Output como entrada de LiveVoice, porque se crearía un bucle.
+1. Download **VB-CABLE Virtual Audio Device** for Windows from the [official VB-Audio page](https://vb-audio.com/Cable/).
+2. Extract **all** files from the ZIP archive into a local folder. Do not run the installer from inside the ZIP archive.
+3. On 64-bit Windows, right-click `VBCABLE_Setup_x64.exe` and select **Run as administrator**. On 32-bit Windows, use `VBCABLE_Setup.exe`. Complete the installation and restart your computer. See the [official installation manual](https://vb-audio.com/Cable/VBCABLE_ReferenceManual.pdf).
+4. Open **Windows Settings → System → Sound** and check that **CABLE Input** appears among output/playback devices and **CABLE Output** among input/recording devices. If Windows changed your default devices, select your headphones and physical microphone again.
+5. In either LiveVoice version, select your **physical microphone** as the input and **CABLE Input** as the output. In **Teams → Settings → Devices**, select **CABLE Output** as the microphone and your headphones as the speaker.
+6. Make a Teams test call. If no audio reaches Teams, check that LiveVoice sends audio to CABLE Input and Teams listens to CABLE Output. Do not select CABLE Output as the LiveVoice input, as that would create a feedback loop.

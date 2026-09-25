@@ -1,23 +1,23 @@
 # WisperLiveVoice
 
-Traduce voz al inglés con Whisper `large-v3` en una GPU NVIDIA y reproduce la traducción con ElevenLabs. Para Teams, la salida puede dirigirse a VB-CABLE.
+Translate Spanish speech into English with Whisper `large-v3` on an NVIDIA GPU, then generate the translated voice with ElevenLabs. For Teams, the output can be routed through VB-CABLE.
 
-**[Guía completa de instalación y uso](INSTALACION.md)**: requisitos de Windows y CUDA, instalación de Python, variable de entorno `ELEVENLABS_API_KEY`, elección de voz y dispositivos, lanzadores, prueba en Teams y solución de problemas.
+The [detailed installation and usage guide (Spanish)](INSTALACION.md) covers Windows and CUDA requirements, Python setup, the `ELEVENLABS_API_KEY` environment variable, voice and device selection, launchers, Teams testing, and troubleshooting.
 
-Inicio rápido desde la raíz del repositorio, después de seguir la guía:
+After completing setup, start the desktop window from the repository root:
 
 ```powershell
 .\start_wisper_gui.bat
 ```
 
-Para la versión de consola, reemplaza los índices y el ID de voz por los tuyos:
+For the command line version, replace the placeholders with your audio device IDs and ElevenLabs voice ID:
 
 ```powershell
-.\start_wisper_cli.bat --input TU_MICROFONO --output TU_CABLE_INPUT --voice-id TU_VOICE_ID
+.\start_wisper_cli.bat --input YOUR_MIC_ID --output YOUR_CABLE_INPUT_ID --voice-id YOUR_VOICE_ID
 ```
 
-La única variable de entorno de esta versión es `ELEVENLABS_API_KEY`. La voz se pasa como parámetro o se elige en la ventana. Whisper se ejecuta siempre en GPU; el audio de entrada se procesa localmente y solo el texto traducido se envía a ElevenLabs.
+This version requires only one application-specific environment variable: `ELEVENLABS_API_KEY`. Pass the voice ID as an option or enter it in the desktop window. Whisper always runs on the GPU. Microphone audio is processed locally; only the translated text is sent to ElevenLabs.
 
-El modelo de voz predeterminado es ElevenLabs Flash v2.5. Para probar Eleven v3 Conversational, elige **Modelo ElevenLabs** en la ventana o añade `--tts-model v3` al lanzador de consola.
+ElevenLabs Flash v2.5 is the default voice model. To try Eleven v3 Conversational, select **Modelo ElevenLabs** (ElevenLabs model) in the desktop window or add `--tts-model v3` to the command line.
 
-Flash v2.5 envía velocidad `0.73`, estabilidad `0.30`, similitud `1.0`, estilo `0` e idioma `es`. V3 conserva sus propios ajustes.
+Flash v2.5 sends speed `0.73`, stability `0.30`, similarity `1.0`, style `0`, and language `es`. V3 keeps its own settings.
