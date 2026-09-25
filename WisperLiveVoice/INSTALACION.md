@@ -2,7 +2,7 @@
 
 WisperLiveVoice toma audio del micrófono, lo traduce **al inglés** con Whisper `large-v3` en una GPU NVIDIA y envía el texto a ElevenLabs para generar voz. Con VB-CABLE puedes usar esa voz como micrófono de Teams. Hay una ventana con transcripciones y una versión de consola.
 
-Whisper trabaja por frases: espera una pausa de unos 600 ms antes de traducir. La primera ejecución descarga el modelo y puede tardar más. La voz se reproduce en la salida seleccionada, que puede ser el cable virtual en vez de tus audífonos.
+Whisper trabaja por frases: espera 600 ms de silencio por defecto para traducir y conserva la frase completa para darle contexto al modelo. Hay un límite de seguridad de 8 s para habla sin pausas. La primera ejecución descarga el modelo y puede tardar más. La voz se reproduce en la salida seleccionada, que puede ser el cable virtual en vez de tus audífonos.
 
 ## 1. Requisitos
 
@@ -77,7 +77,7 @@ Desde la raíz puedes abrir por doble clic `start_wisper_gui.bat` para la ventan
 .\start_wisper_gui.bat
 ```
 
-En la ventana revisa el micrófono, la salida, el ID de voz, **Sensibilidad** y **Modelo ElevenLabs**; luego pulsa **Iniciar**. Verás el nivel del micrófono, lo que dices (`ES:`), la traducción (`EN:`) y el estado de ElevenLabs. Pulsa **Detener** para finalizar.
+En la ventana revisa el micrófono, la salida, el ID de voz, **Sensibilidad**, **Pausa para enviar** y **Modelo ElevenLabs**; luego pulsa **Iniciar**. Verás el nivel del micrófono, la traducción (`EN:`), lo que dices (`ES:`) y el estado de ElevenLabs. La traducción se envía a ElevenLabs antes de calcular el texto en español de esa misma frase. Pulsa **Detener** para finalizar.
 
 El lanzador de consola usa por defecto entrada `14`, salida `21` y el ID de voz anterior. Reemplázalos con tus valores:
 
@@ -121,7 +121,7 @@ En consola usa `Ctrl+C` para terminar. Haz una llamada de prueba en Teams. La se
 | --- | --- |
 | No aparece nivel de micrófono | Comprueba el índice de entrada, el permiso de micrófono en Windows y que otra aplicación no lo tenga bloqueado. |
 | Hay nivel, pero no detecta frases | Baja **Sensibilidad (umbral)** en la ventana. En consola prueba `--mic-threshold 0.002`; un número menor es más sensible y puede captar ruido. El valor inicial es `0.004`. |
-| Detecta voz, pero tarda en aparecer texto | Whisper espera una pausa y traduce con `large-v3`. La primera carga descarga el modelo. En consola puedes usar `--whisper-model medium` o `small` para reducir trabajo, con posible pérdida de precisión. |
+| Detecta voz, pero tarda en aparecer texto | Reduce **Pausa para enviar** de 600 a 400 ms en la ventana, o usa `--pause-ms 400` en consola. Una pausa demasiado corta puede partir frases y reducir la precisión de la traducción. Whisper traduce con `large-v3`; la primera carga descarga el modelo. En consola puedes usar `--whisper-model medium` o `small` para reducir trabajo, con posible pérdida de precisión. |
 | Error de GPU o DLL CUDA/cuDNN | Ejecuta `nvidia-smi`, revisa CUDA 12, cuBLAS y cuDNN 9 en `PATH`, abre otra terminal y repite la prueba `CUDA OK`. |
 | Falta `ELEVENLABS_API_KEY` | Ejecuta `setx` y abre otra terminal, o comprueba la variable de usuario de Windows. |
 | Aparece `EN:`, pero no llega audio | Revisa el error en la consola o ventana, la API key, el permiso de Text to Speech, los créditos y que la voz esté disponible para tu cuenta. |

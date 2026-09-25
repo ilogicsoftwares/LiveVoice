@@ -34,6 +34,7 @@ class LiveVoiceWindow:
         initial_model = next(label for label, value in self.MODEL_LABELS.items() if value == tts_model)
         self.model_var = tk.StringVar(value=initial_model)
         self.threshold_var = tk.StringVar(value="0.004")
+        self.pause_var = tk.StringVar(value="600")
         self.status_var = tk.StringVar(value="Listo")
         self.level_var = tk.StringVar(value="Micrófono: esperando inicio")
         self._build()
@@ -71,6 +72,9 @@ class LiveVoiceWindow:
             values=tuple(self.MODEL_LABELS),
         )
         self.model_combo.grid(row=2, column=3, sticky="ew", pady=(10, 0))
+        ttk.Label(controls, text="Pausa para enviar (ms)").grid(row=3, column=0, sticky="w", pady=(10, 0))
+        self.pause_entry = ttk.Entry(controls, textvariable=self.pause_var)
+        self.pause_entry.grid(row=3, column=1, sticky="w", pady=(10, 0))
 
         feedback = ttk.Frame(self.root, padding=(16, 0))
         feedback.grid(row=1, column=0, sticky="ew")
@@ -144,6 +148,13 @@ class LiveVoiceWindow:
         except ValueError:
             messagebox.showerror("Sensibilidad inválida", "El umbral debe ser un número entre 0 y 1.")
             return
+        try:
+            pause_ms = int(self.pause_var.get())
+            if not 100 <= pause_ms <= 1500:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("Pausa inválida", "La pausa debe ser un número entero entre 100 y 1500 ms.")
+            return
         command = [
             sys.executable, "-u", str(Path(__file__).with_name("live_voice.py")),
             "--input", str(self.inputs[self.input_var.get()]),
@@ -151,6 +162,7 @@ class LiveVoiceWindow:
             "--voice-id", voice,
             "--tts-model", model_choice,
             "--mic-threshold", str(threshold),
+            "--pause-ms", str(pause_ms),
         ]
         try:
             self.process = subprocess.Popen(
@@ -167,6 +179,7 @@ class LiveVoiceWindow:
         self.output_combo.configure(state="disabled")
         self.voice_entry.configure(state="disabled")
         self.threshold_entry.configure(state="disabled")
+        self.pause_entry.configure(state="disabled")
         self.model_combo.configure(state="disabled")
         self.status_var.set("Iniciando Whisper en GPU…")
         threading.Thread(target=self._read_output, args=(self.process,), daemon=True).start()
@@ -221,6 +234,7 @@ class LiveVoiceWindow:
         self.output_combo.configure(state="readonly")
         self.voice_entry.configure(state="normal")
         self.threshold_entry.configure(state="normal")
+        self.pause_entry.configure(state="normal")
         self.model_combo.configure(state="readonly")
         self.status_var.set(f"Detenido (código {code}).")
 

@@ -24,9 +24,9 @@ OUTPUT_RATE = 24000
 FRAME_MS = 20
 INPUT_FRAMES = INPUT_RATE * FRAME_MS // 1000
 OUTPUT_FRAMES = OUTPUT_RATE * FRAME_MS // 1000
-SILENCE_FRAMES = 30  # 600 ms
+DEFAULT_PAUSE_MS = 600
 MIN_SPEECH_FRAMES = 15  # 300 ms
-MAX_UTTERANCE_FRAMES = 400  # 8 s
+MAX_UTTERANCE_FRAMES = 400  # 8 s safety limit for uninterrupted speech.
 DEFAULT_RMS_THRESHOLD = 0.004
 ELEVENLABS_MODELS = {
     "flash": "eleven_flash_v2_5",
@@ -59,8 +59,9 @@ def validate_devices(input_index: int, output_index: int) -> None:
 class PhraseDetector:
     """Corta el audio en frases usando volumen y pausas; conserva 200 ms previos."""
 
-    def __init__(self, threshold: float = DEFAULT_RMS_THRESHOLD) -> None:
+    def __init__(self, threshold: float = DEFAULT_RMS_THRESHOLD, pause_ms: int = DEFAULT_PAUSE_MS) -> None:
         self.threshold = threshold
+        self.silence_frames = (pause_ms + FRAME_MS - 1) // FRAME_MS
         self.level = 0.0
         self.preroll: collections.deque[bytes] = collections.deque(maxlen=10)
         self.frames: list[bytes] = []
@@ -84,7 +85,7 @@ class PhraseDetector:
             self.silent_frames = 0
         else:
             self.silent_frames += 1
-        if self.silent_frames >= SILENCE_FRAMES or len(self.frames) >= MAX_UTTERANCE_FRAMES:
+        if self.silent_frames >= self.silence_frames or len(self.frames) >= MAX_UTTERANCE_FRAMES:
             return self.finish()
         return None
 
@@ -222,7 +223,7 @@ async def run(args: argparse.Namespace) -> None:
     phrase_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=3)
     text_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=3)
     playback = Playback()
-    detector = PhraseDetector(args.mic_threshold)
+    detector = PhraseDetector(args.mic_threshold, args.pause_ms)
 
     def input_callback(indata, frames, time_info, status) -> None:
         data = bytes(indata)
@@ -308,6 +309,8 @@ def main() -> None:
     parser.add_argument("--whisper-model", default="large-v3", choices=("tiny", "base", "small", "medium", "large-v3"))
     parser.add_argument("--mic-threshold", type=float, default=DEFAULT_RMS_THRESHOLD,
                         help="Umbral de voz RMS (por defecto: 0.004; baja el valor si no detecta tu voz)")
+    parser.add_argument("--pause-ms", type=int, default=DEFAULT_PAUSE_MS,
+                        help="Silencio para cerrar una frase (por defecto: 600 ms)")
     args = parser.parse_args()
     if args.list_devices:
         list_devices()
@@ -316,6 +319,8 @@ def main() -> None:
         parser.error("--input, --output y --voice-id son obligatorios; usa --list-devices")
     if not 0 < args.mic_threshold < 1:
         parser.error("--mic-threshold debe estar entre 0 y 1")
+    if not 100 <= args.pause_ms <= 1500:
+        parser.error("--pause-ms debe estar entre 100 y 1500")
     try:
         asyncio.run(run(args))
     except KeyboardInterrupt:
