@@ -10,7 +10,7 @@ Whisper trabaja por frases: espera 600 ms de silencio por defecto para traducir 
 - GPU NVIDIA con controlador actualizado. Ejecuta `nvidia-smi` en PowerShell para comprobar que Windows la detecta. Esta aplicación **requiere GPU** y usa CUDA con cálculo `float16`; no tiene modo CPU.
 - [cuBLAS para CUDA 12 y cuDNN 9 para CUDA 12](https://github.com/SYSTRAN/faster-whisper#gpu) accesibles desde `PATH`. Sigue la [instalación de NVIDIA para Windows](https://docs.nvidia.com/deeplearning/cudnn/installation/latest/backend.html) y abre otra terminal después de cambiar `PATH`. Que `nvidia-smi` funcione no garantiza que estén presentes estas bibliotecas.
 - Micrófono, audífonos, Internet y cuenta de [ElevenLabs](https://elevenlabs.io/docs/eleven-api/quickstart) con API key habilitada para Text to Speech. El uso de la API puede generar cargos.
-- Para Teams: [VB-CABLE](https://vb-audio.com/Cable/). Extrae el ZIP, ejecuta el instalador x64 como administrador y reinicia Windows. Consulta la [guía del fabricante](https://vb-audio.com/Cable/VBCABLE_ReferenceManual.pdf).
+- Para Teams: [VB-CABLE](https://vb-audio.com/Cable/). Sigue los [pasos de instalación y configuración en el README principal](../README.md#3-instalar-el-micrófono-virtual-vb-cable).
 
 No hace falta instalar FFmpeg por separado: `faster-whisper` usa PyAV. Si `large-v3` no cabe en la memoria de tu GPU, puedes elegir `medium` o `small`, con posible pérdida de precisión.
 
@@ -55,7 +55,7 @@ Abre una **terminal nueva** después de `setx`. Verifica que existe sin imprimir
 
 El programa también puede leer la variable de usuario directamente si la terminal estaba abierta antes de `setx`. `GEMINI_API_KEY` es exclusiva de la otra implementación y **no se usa aquí**. No guardes el token en el código, en los `.bat` ni en Git.
 
-La **voz es un parámetro**, `--voice-id`, o un campo de la ventana. En ElevenLabs abre **My Voices → tres puntos de la voz → Copy voice ID** ([ayuda oficial](https://elevenlabs.io/docs/help-center/technical/how-do-i-find-the-voice-id-of-my-voices-via-the-website-and-api)). Los lanzadores traen `cEIu6qe1v5XA6Xvj3g1D` como valor inicial de este proyecto; otra cuenta puede necesitar un ID distinto. Algunas voces de la Voice Library tienen [restricciones de acceso por plan](https://elevenlabs.io/docs/eleven-creative/voices/voice-library).
+La **voz es un parámetro**, `--voice-id`, o un campo de la ventana. En ElevenLabs abre **My Voices → tres puntos de la voz → Copy voice ID** ([ayuda oficial](https://elevenlabs.io/docs/help-center/technical/how-do-i-find-the-voice-id-of-my-voices-via-the-website-and-api)). Usa el ID de una voz disponible en tu cuenta; algunas voces de la Voice Library tienen [restricciones de acceso por plan](https://elevenlabs.io/docs/eleven-creative/voices/voice-library).
 
 ## 4. Elegir el micrófono y el cable virtual
 
@@ -65,7 +65,7 @@ Desde la raíz del repositorio, lista los dispositivos:
 .\.venv\Scripts\python.exe WisperLiveVoice\live_voice.py --list-devices
 ```
 
-Anota el número de tu **micrófono físico** para `--input` y el de **CABLE Input** (dispositivo de reproducción) para `--output`. En el equipo de desarrollo fueron `14` y `21`; **los índices cambian** según el equipo o las conexiones. No elijas CABLE Output como entrada de WisperLiveVoice, porque podrías crear un bucle de audio.
+Anota el número de tu **micrófono físico** para `--input` y el de **CABLE Input** (dispositivo de reproducción) para `--output`. Los índices cambian según el equipo o las conexiones. No elijas CABLE Output como entrada de WisperLiveVoice, porque podrías crear un bucle de audio.
 
 En Teams entra a **Configuración → Dispositivos → Micrófono** y elige **CABLE Output** (dispositivo de grabación). Mantén los audífonos como altavoz de Teams para evitar que la llamada vuelva a entrar por tu micrófono.
 
@@ -79,7 +79,7 @@ Desde la raíz puedes abrir por doble clic `start_wisper_gui.bat` para la ventan
 
 En la ventana revisa el micrófono, la salida, el ID de voz, **Sensibilidad**, **Pausa para enviar** y **Modelo ElevenLabs**; luego pulsa **Iniciar**. Verás el nivel del micrófono, la traducción (`EN:`), lo que dices (`ES:`) y el estado de ElevenLabs. La traducción se envía a ElevenLabs antes de calcular el texto en español de esa misma frase. Pulsa **Detener** para finalizar.
 
-El lanzador de consola usa por defecto entrada `14`, salida `21` y el ID de voz anterior. Reemplázalos con tus valores:
+Al iniciar la versión de consola, indica los índices de tus dispositivos y el ID de tu voz:
 
 ```powershell
 .\start_wisper_cli.bat --input 1 --output 8 --voice-id TU_VOICE_ID
@@ -87,7 +87,7 @@ El lanzador de consola usa por defecto entrada `14`, salida `21` y el ID de voz 
 
 ### Elegir el modelo de voz
 
-La opción predeterminada es **Flash v2.5** (`--tts-model flash`). Usa los ajustes de voz probados para Richard: velocidad `0.73`, estabilidad `0.30`, similitud `1.0` y exageración de estilo `0`. La solicitud fija `language_code=es` aunque Whisper envíe texto traducido al inglés; esto puede influir en la pronunciación inglesa. Para probar una voz más expresiva usa **Eleven v3 Conversational** (`--tts-model v3`), que conserva sus ajustes independientes:
+La opción predeterminada es **Flash v2.5** (`--tts-model flash`). Usa velocidad `0.73`, estabilidad `0.30`, similitud `1.0` y exageración de estilo `0`. La solicitud fija `language_code=es` aunque Whisper envíe texto traducido al inglés; esto puede influir en la pronunciación inglesa. Para probar una voz más expresiva usa **Eleven v3 Conversational** (`--tts-model v3`), que conserva sus ajustes independientes:
 
 ```powershell
 .\start_wisper_cli.bat --input 1 --output 8 --voice-id TU_VOICE_ID --tts-model v3

@@ -13,11 +13,11 @@ Inicio rápido desde la raíz del repositorio, después de seguir la guía:
 Para la versión de consola, reemplaza los índices y el ID de voz por los tuyos:
 
 ```powershell
-.\start_wisper_cli.bat --input 14 --output 21 --voice-id cEIu6qe1v5XA6Xvj3g1D
+.\start_wisper_cli.bat --input TU_MICROFONO --output TU_CABLE_INPUT --voice-id TU_VOICE_ID
 ```
 
 La única variable de entorno de esta versión es `ELEVENLABS_API_KEY`. La voz se pasa como parámetro o se elige en la ventana. Whisper se ejecuta siempre en GPU; el audio de entrada se procesa localmente y solo el texto traducido se envía a ElevenLabs.
 
 El modelo de voz predeterminado es ElevenLabs Flash v2.5. Para probar Eleven v3 Conversational, elige **Modelo ElevenLabs** en la ventana o añade `--tts-model v3` al lanzador de consola.
 
-Flash v2.5 envía velocidad `0.73`, estabilidad `0.30`, similitud `1.0`, estilo `0` e idioma `es`, según los ajustes probados para la voz Richard. V3 conserva sus propios ajustes.
+Flash v2.5 envía velocidad `0.73`, estabilidad `0.30`, similitud `1.0`, estilo `0` e idioma `es`. V3 conserva sus propios ajustes.
