@@ -28,7 +28,10 @@ SILENCE_FRAMES = 30  # 600 ms
 MIN_SPEECH_FRAMES = 15  # 300 ms
 MAX_UTTERANCE_FRAMES = 400  # 8 s
 DEFAULT_RMS_THRESHOLD = 0.004
-TTS_MODEL = "eleven_flash_v2_5"
+ELEVENLABS_MODELS = {
+    "flash": "eleven_flash_v2_5",
+    "v3": "eleven_v3_conversational",
+}
 
 
 def list_devices() -> None:
@@ -149,27 +152,46 @@ def elevenlabs_api_key() -> str | None:
         return None
 
 
-async def synthesize(text: str, voice_id: str, api_key: str, playback: Playback) -> int:
-    query = urlencode({"model_id": TTS_MODEL, "output_format": "pcm_24000", "auto_mode": "true"})
-    url = f"wss://api.elevenlabs.io/v1/text-to-speech/{quote(voice_id, safe='')}/stream-input?{query}"
+def synthesis_request(text: str, voice_id: str, model_choice: str) -> tuple[str, list[dict]]:
+    """Build the URL and messages for the selected ElevenLabs WebSocket protocol."""
+    model_id = ELEVENLABS_MODELS[model_choice]
+    query = {"model_id": model_id, "output_format": "pcm_24000"}
+    if model_choice == "flash":
+        query["auto_mode"] = "true"
+        path = f"text-to-speech/{quote(voice_id, safe='')}/stream-input"
+        messages = [{"text": " "}, {"text": text, "flush": True}, {"text": ""}]
+    else:
+        path = "text-to-dialogue/stream-input"
+        messages = [
+            {"voices": [voice_id]},
+            {"inputs": [{"text": text, "voice_id": voice_id, "new_turn": False}]},
+            {"close_socket": True},
+        ]
+    return f"wss://api.elevenlabs.io/v1/{path}?{urlencode(query)}", messages
+
+
+async def synthesize(
+    text: str, voice_id: str, api_key: str, playback: Playback, model_choice: str
+) -> int:
+    url, messages = synthesis_request(text, voice_id, model_choice)
     received = 0
     async with websockets.connect(url, additional_headers={"xi-api-key": api_key}, open_timeout=15) as ws:
-        print("ElevenLabs: conectado; generando voz…", flush=True)
-        await ws.send(json.dumps({"text": " "}))
-        await ws.send(json.dumps({"text": text, "flush": True}))
-        await ws.send(json.dumps({"text": ""}))
-        async for message in ws:
-            response = json.loads(message)
-            if response.get("audio"):
-                chunk = base64.b64decode(response["audio"])
-                playback.add(chunk)
-                received += len(chunk)
-                if received == len(chunk):
-                    print("ElevenLabs: llegó audio; reproduciendo…", flush=True)
-            if response.get("isFinal") or response.get("is_final"):
-                break
-            if response.get("error"):
-                raise RuntimeError(f"ElevenLabs: {response['error']}")
+        print(f"ElevenLabs ({ELEVENLABS_MODELS[model_choice]}): conectado; generando voz…", flush=True)
+        for item in messages:
+            await ws.send(json.dumps(item))
+        async with asyncio.timeout(60):
+            async for message in ws:
+                response = json.loads(message)
+                if response.get("error"):
+                    raise RuntimeError(f"ElevenLabs: {response['error']}")
+                if response.get("audio"):
+                    chunk = base64.b64decode(response["audio"])
+                    playback.add(chunk)
+                    received += len(chunk)
+                    if received == len(chunk):
+                        print("ElevenLabs: llegó audio; reproduciendo…", flush=True)
+                if response.get("isFinal") or response.get("is_final"):
+                    break
     if not received:
         raise RuntimeError("ElevenLabs terminó sin enviar audio")
     return received
@@ -237,7 +259,7 @@ async def run(args: argparse.Namespace) -> None:
         while True:
             english = await text_queue.get()
             try:
-                received = await synthesize(english, args.voice_id, api_key, playback)
+                received = await synthesize(english, args.voice_id, api_key, playback, args.tts_model)
                 print(f"ElevenLabs: voz recibida ({received / (OUTPUT_RATE * 2):.1f} s de audio).", flush=True)
             except Exception as exc:
                 print(f"Error de ElevenLabs: {exc}", file=sys.stderr, flush=True)
@@ -269,6 +291,8 @@ def main() -> None:
     parser.add_argument("--input", type=int, help="Índice del micrófono físico")
     parser.add_argument("--output", type=int, help="Índice de CABLE Input u otra salida")
     parser.add_argument("--voice-id", help="ID de voz de ElevenLabs")
+    parser.add_argument("--tts-model", choices=ELEVENLABS_MODELS, default="flash",
+                        help="Modelo de voz: flash (menor latencia) o v3 (más expresivo)")
     parser.add_argument("--source-language", default="es", help="Código de idioma de entrada (por defecto: es)")
     parser.add_argument("--whisper-model", default="large-v3", choices=("tiny", "base", "small", "medium", "large-v3"))
     parser.add_argument("--mic-threshold", type=float, default=DEFAULT_RMS_THRESHOLD,

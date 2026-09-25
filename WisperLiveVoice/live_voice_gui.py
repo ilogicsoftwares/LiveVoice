@@ -15,7 +15,12 @@ import sounddevice as sd
 
 
 class LiveVoiceWindow:
-    def __init__(self, root: tk.Tk, voice_id: str) -> None:
+    MODEL_LABELS = {
+        "Flash v2.5 · menor latencia": "flash",
+        "v3 Conversational · más expresivo": "v3",
+    }
+
+    def __init__(self, root: tk.Tk, voice_id: str, tts_model: str = "flash") -> None:
         self.root = root
         self.root.title("WisperLiveVoice")
         self.root.geometry("940x650")
@@ -26,6 +31,8 @@ class LiveVoiceWindow:
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
         self.voice_var = tk.StringVar(value=voice_id)
+        initial_model = next(label for label, value in self.MODEL_LABELS.items() if value == tts_model)
+        self.model_var = tk.StringVar(value=initial_model)
         self.threshold_var = tk.StringVar(value="0.004")
         self.status_var = tk.StringVar(value="Listo")
         self.level_var = tk.StringVar(value="Micrófono: esperando inicio")
@@ -58,6 +65,12 @@ class LiveVoiceWindow:
         ttk.Label(controls, text="Sensibilidad (umbral)").grid(row=2, column=0, sticky="w", pady=(10, 0))
         self.threshold_entry = ttk.Entry(controls, textvariable=self.threshold_var)
         self.threshold_entry.grid(row=2, column=1, sticky="w", pady=(10, 0))
+        ttk.Label(controls, text="Modelo ElevenLabs").grid(row=2, column=2, sticky="w", pady=(10, 0))
+        self.model_combo = ttk.Combobox(
+            controls, textvariable=self.model_var, state="readonly",
+            values=tuple(self.MODEL_LABELS),
+        )
+        self.model_combo.grid(row=2, column=3, sticky="ew", pady=(10, 0))
 
         feedback = ttk.Frame(self.root, padding=(16, 0))
         feedback.grid(row=1, column=0, sticky="ew")
@@ -120,7 +133,8 @@ class LiveVoiceWindow:
         if self.process and self.process.poll() is None:
             return
         voice = self.voice_var.get().strip()
-        if not voice or self.input_var.get() not in self.inputs or self.output_var.get() not in self.outputs:
+        model_choice = self.MODEL_LABELS.get(self.model_var.get())
+        if not voice or self.input_var.get() not in self.inputs or self.output_var.get() not in self.outputs or not model_choice:
             messagebox.showerror("Configuración incompleta", "Elige micrófono, salida e ID de voz.")
             return
         try:
@@ -135,6 +149,7 @@ class LiveVoiceWindow:
             "--input", str(self.inputs[self.input_var.get()]),
             "--output", str(self.outputs[self.output_var.get()]),
             "--voice-id", voice,
+            "--tts-model", model_choice,
             "--mic-threshold", str(threshold),
         ]
         try:
@@ -152,6 +167,7 @@ class LiveVoiceWindow:
         self.output_combo.configure(state="disabled")
         self.voice_entry.configure(state="disabled")
         self.threshold_entry.configure(state="disabled")
+        self.model_combo.configure(state="disabled")
         self.status_var.set("Iniciando Whisper en GPU…")
         threading.Thread(target=self._read_output, args=(self.process,), daemon=True).start()
 
@@ -205,6 +221,7 @@ class LiveVoiceWindow:
         self.output_combo.configure(state="readonly")
         self.voice_entry.configure(state="normal")
         self.threshold_entry.configure(state="normal")
+        self.model_combo.configure(state="readonly")
         self.status_var.set(f"Detenido (código {code}).")
 
     def _close(self) -> None:
@@ -215,9 +232,11 @@ class LiveVoiceWindow:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--voice-id", default="", help="ID de voz inicial de ElevenLabs")
+    parser.add_argument("--tts-model", choices=("flash", "v3"), default="flash",
+                        help="Modelo inicial de ElevenLabs")
     args = parser.parse_args()
     root = tk.Tk()
-    LiveVoiceWindow(root, args.voice_id)
+    LiveVoiceWindow(root, args.voice_id, args.tts_model)
     root.mainloop()
 
 

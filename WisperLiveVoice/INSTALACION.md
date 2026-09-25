@@ -77,13 +77,29 @@ Desde la raíz puedes abrir por doble clic `start_wisper_gui.bat` para la ventan
 .\start_wisper_gui.bat
 ```
 
-En la ventana revisa el micrófono, la salida, el ID de voz y **Sensibilidad**; luego pulsa **Iniciar**. Verás el nivel del micrófono, lo que dices (`ES:`), la traducción (`EN:`) y el estado de ElevenLabs. Pulsa **Detener** para finalizar.
+En la ventana revisa el micrófono, la salida, el ID de voz, **Sensibilidad** y **Modelo ElevenLabs**; luego pulsa **Iniciar**. Verás el nivel del micrófono, lo que dices (`ES:`), la traducción (`EN:`) y el estado de ElevenLabs. Pulsa **Detener** para finalizar.
 
 El lanzador de consola usa por defecto entrada `14`, salida `21` y el ID de voz anterior. Reemplázalos con tus valores:
 
 ```powershell
 .\start_wisper_cli.bat --input 1 --output 8 --voice-id TU_VOICE_ID
 ```
+
+### Elegir el modelo de voz
+
+La opción predeterminada es **Flash v2.5** (`--tts-model flash`), que prioriza la latencia. Para probar una voz más expresiva usa **Eleven v3 Conversational** (`--tts-model v3`):
+
+```powershell
+.\start_wisper_cli.bat --input 1 --output 8 --voice-id TU_VOICE_ID --tts-model v3
+```
+
+En la ventana puedes cambiar **Modelo ElevenLabs** antes de pulsar Iniciar. También puedes abrirla con v3 seleccionado:
+
+```powershell
+.\start_wisper_gui.bat --tts-model v3
+```
+
+Ambos modelos usan el mismo Whisper `large-v3` para traducir. Solo cambia la generación de voz: Flash usa el WebSocket de Text to Speech; v3 Conversational usa el de Text to Dialogue. V3 puede sonar más expresivo, pero la latencia real depende de la frase, la red y el servicio. Elige Flash si necesitas la menor demora. [Comparación oficial de ElevenLabs](https://elevenlabs.io/docs/eleven-api/guides/how-to/websockets/tts-vs-ttd-websockets).
 
 También puedes cambiar solo la voz inicial de la ventana:
 

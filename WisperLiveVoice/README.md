@@ -17,3 +17,5 @@ Para la versión de consola, reemplaza los índices y el ID de voz por los tuyos
 ```
 
 La única variable de entorno de esta versión es `ELEVENLABS_API_KEY`. La voz se pasa como parámetro o se elige en la ventana. Whisper se ejecuta siempre en GPU; el audio de entrada se procesa localmente y solo el texto traducido se envía a ElevenLabs.
+
+El modelo de voz predeterminado es ElevenLabs Flash v2.5. Para probar Eleven v3 Conversational, elige **Modelo ElevenLabs** en la ventana o añade `--tts-model v3` al lanzador de consola.
