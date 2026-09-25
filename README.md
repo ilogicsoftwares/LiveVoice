@@ -1,4 +1,13 @@
-# Traductor de voz local para Teams (prueba)
+# LiveVoice
+
+Este repositorio tiene dos implementaciones para Teams:
+
+- **[WisperLiveVoice](WisperLiveVoice/INSTALACION.md)**: Whisper en GPU y voz de ElevenLabs. La guía enlazada cubre instalación completa y la variable de entorno necesaria.
+- **Gemini Live Translate**: implementación descrita a continuación.
+
+Para WisperLiveVoice se necesita `ELEVENLABS_API_KEY`; la voz se elige como parámetro. Para Gemini se necesita `GEMINI_API_KEY`. Sigue la guía de la versión que quieras usar.
+
+## Implementación Gemini
 
 Hablas español al micrófono físico. Gemini Live Translate devuelve audio en inglés, que la app reproduce en un cable de audio virtual. Teams usa el otro extremo del cable como micrófono. Esta versión **usa la traducción y voz de Gemini**; no integra Whisper ni ElevenLabs todavía.
 
