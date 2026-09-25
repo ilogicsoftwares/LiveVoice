@@ -17,6 +17,38 @@ from google import genai
 from google.genai import types
 
 MODEL = "gemini-3.5-live-translate-preview"
+# Languages listed in Google's Live Translate documentation (BCP-47 codes).
+SUPPORTED_LANGUAGES = (
+    ("af", "Afrikaans"), ("ak", "Akan"), ("sq", "Albanian"),
+    ("am", "Amharic"), ("ar", "Arabic"), ("hy", "Armenian"),
+    ("az", "Azerbaijani"), ("eu", "Basque"), ("be", "Belarusian"),
+    ("bn", "Bengali"), ("bg", "Bulgarian"), ("my", "Burmese"),
+    ("ca", "Catalan"), ("zh-Hans", "Chinese (Simplified)"),
+    ("zh-Hant", "Chinese (Traditional)"), ("hr", "Croatian"),
+    ("cs", "Czech"), ("da", "Danish"), ("nl", "Dutch"),
+    ("en", "English"), ("et", "Estonian"), ("fil", "Filipino"),
+    ("fi", "Finnish"), ("fr", "French"), ("gl", "Galician"),
+    ("ka", "Georgian"), ("de", "German"), ("el", "Greek"),
+    ("gu", "Gujarati"), ("ha", "Hausa"), ("he", "Hebrew"),
+    ("hi", "Hindi"), ("hu", "Hungarian"), ("is", "Icelandic"),
+    ("id", "Indonesian"), ("it", "Italian"), ("ja", "Japanese"),
+    ("jv", "Javanese"), ("kn", "Kannada"), ("kk", "Kazakh"),
+    ("km", "Khmer"), ("rw", "Kinyarwanda"), ("ko", "Korean"),
+    ("lo", "Lao"), ("lv", "Latvian"), ("lt", "Lithuanian"),
+    ("mk", "Macedonian"), ("ms", "Malay"), ("ml", "Malayalam"),
+    ("mr", "Marathi"), ("mn", "Mongolian"), ("ne", "Nepali"),
+    ("no", "Norwegian"), ("nb", "Norwegian Bokmål"),
+    ("fa", "Persian"), ("pl", "Polish"),
+    ("pt-BR", "Portuguese (Brazil)"), ("pt-PT", "Portuguese (Portugal)"),
+    ("pa", "Punjabi"), ("ro", "Romanian"), ("ru", "Russian"),
+    ("sr", "Serbian"), ("sd", "Sindhi"), ("si", "Sinhala"),
+    ("sk", "Slovak"), ("sl", "Slovenian"), ("es", "Spanish"),
+    ("su", "Sundanese"), ("sw", "Swahili"), ("sv", "Swedish"),
+    ("ta", "Tamil"), ("te", "Telugu"), ("th", "Thai"),
+    ("tr", "Turkish"), ("uk", "Ukrainian"), ("ur", "Urdu"),
+    ("uz", "Uzbek"), ("vi", "Vietnamese"), ("zu", "Zulu"),
+)
+LANGUAGE_NAMES = dict(SUPPORTED_LANGUAGES)
 INPUT_RATE = 16000
 OUTPUT_RATE = 24000
 INPUT_FRAMES = 1600  # 100 ms, per Google's translation API guidance.
@@ -48,6 +80,12 @@ def list_devices() -> None:
         print(f"{index:<4} {device['max_input_channels']:<2} {device['max_output_channels']:<3}   {device['name']}")
     print("\nChoose your physical microphone as --input and CABLE Input (playback) as --output.")
     print("In Teams select CABLE Output (recording) as your microphone.")
+
+
+def list_languages() -> None:
+    print("CODE    LANGUAGE")
+    for code, name in SUPPORTED_LANGUAGES:
+        print(f"{code:<7} {name}")
 
 
 def validate_devices(devices: Devices) -> None:
@@ -134,7 +172,8 @@ async def send_audio(session, bridge: AudioBridge) -> None:
 
 
 async def receive_audio(
-    session, bridge: AudioBridge, show_text: bool, on_event: EventCallback | None
+    session, bridge: AudioBridge, show_text: bool, on_event: EventCallback | None,
+    target_language: str,
 ) -> None:
     async for response in session.receive():
         content = response.server_content
@@ -143,7 +182,7 @@ async def receive_audio(
         if show_text:
             for label, transcript in (
                 ("ES", content.input_transcription),
-                ("EN", content.output_transcription),
+                (target_language.upper(), content.output_transcription),
             ):
                 if transcript and transcript.text:
                     emit_event(on_event, "transcript", f"{label}: {transcript.text}")
@@ -165,7 +204,10 @@ async def run(
     show_text: bool,
     on_event: EventCallback | None = None,
     stop_event: threading.Event | None = None,
+    target_language: str = "en",
 ) -> None:
+    if target_language not in LANGUAGE_NAMES:
+        raise ValueError(f"Unsupported target language: {target_language}")
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise ValueError("Set GEMINI_API_KEY in your environment before running")
@@ -179,7 +221,7 @@ async def run(
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         translation_config=types.TranslationConfig(
-            target_language_code="en", echo_target_language=False
+            target_language_code=target_language, echo_target_language=False
         ),
     )
     emit_event(on_event, "status", "Conectando con Gemini Live Translate…")
@@ -194,10 +236,13 @@ async def run(
                 dtype="int16", device=devices.input_index, callback=bridge.input_callback,
                 latency="low",
             ):
-                emit_event(on_event, "status", "Activo: habla en español; Teams recibe la traducción en inglés.")
+                emit_event(
+                    on_event, "status",
+                    f"Activo: habla en español; Teams recibe la traducción en {LANGUAGE_NAMES[target_language]}.",
+                )
                 sender = asyncio.create_task(send_audio(session, bridge))
                 receiver = asyncio.create_task(
-                    receive_audio(session, bridge, show_text, on_event)
+                    receive_audio(session, bridge, show_text, on_event, target_language)
                 )
                 stopper = asyncio.create_task(wait_for_stop(stop_event))
                 try:
@@ -224,17 +269,28 @@ async def run(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list-devices", action="store_true")
+    parser.add_argument("--list-languages", action="store_true")
     parser.add_argument("--input", type=int, help="Physical microphone device ID")
     parser.add_argument("--output", type=int, help="Virtual cable playback device ID")
+    parser.add_argument(
+        "--target-language", choices=LANGUAGE_NAMES, default="en", metavar="CODE",
+        help="Translation target language BCP-47 code (default: en).",
+    )
     parser.add_argument("--no-text", action="store_true", help="Hide transcripts")
     args = parser.parse_args()
+    if args.list_languages:
+        list_languages()
+        return
     if args.list_devices:
         list_devices()
         return
     if args.input is None or args.output is None:
         parser.error("--input and --output are required; use --list-devices first")
     try:
-        asyncio.run(run(Devices(args.input, args.output), not args.no_text))
+        asyncio.run(run(
+            Devices(args.input, args.output), not args.no_text,
+            target_language=args.target_language,
+        ))
     except KeyboardInterrupt:
         print("\nStopped.")
     except (ValueError, sd.PortAudioError, ConnectionError) as exc:

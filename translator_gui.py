@@ -10,7 +10,7 @@ from tkinter import messagebox, ttk
 
 import sounddevice as sd
 
-from translator import Devices, INPUT_RATE, OUTPUT_RATE, run
+from translator import Devices, INPUT_RATE, LANGUAGE_NAMES, OUTPUT_RATE, SUPPORTED_LANGUAGES, run
 
 
 class TranslatorWindow:
@@ -28,10 +28,15 @@ class TranslatorWindow:
         self.stop_event: threading.Event | None = None
         self.input_devices: dict[str, int] = {}
         self.output_devices: dict[str, int] = {}
+        self.target_languages = {
+            f"{name} ({code})": code for code, name in SUPPORTED_LANGUAGES
+        }
 
         self.status_var = tk.StringVar(value="Listo para iniciar")
         self.input_var = tk.StringVar()
         self.output_var = tk.StringVar()
+        self.target_var = tk.StringVar(value="English (en)")
+        self.output_heading_var = tk.StringVar(value="EN · Traducción hablada por Gemini")
 
         self._build_ui()
         self._load_devices()
@@ -71,8 +76,18 @@ class TranslatorWindow:
         )
         self.output_combo.grid(row=0, column=3, sticky="ew")
 
+        ttk.Label(controls, text="Idioma destino").grid(
+            row=1, column=0, sticky="w", padx=(0, 8), pady=(10, 0)
+        )
+        self.target_combo = ttk.Combobox(
+            controls, textvariable=self.target_var, state="readonly", width=28,
+            values=tuple(self.target_languages),
+        )
+        self.target_combo.grid(row=1, column=1, sticky="w", pady=(10, 0))
+        self.target_combo.bind("<<ComboboxSelected>>", self._update_output_heading)
+
         button_row = ttk.Frame(controls)
-        button_row.grid(row=1, column=0, columnspan=4, sticky="ew", pady=(12, 0))
+        button_row.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(12, 0))
         self.start_button = ttk.Button(button_row, text="Iniciar traducción", command=self.start)
         self.start_button.pack(side="left")
         self.stop_button = ttk.Button(
@@ -90,7 +105,7 @@ class TranslatorWindow:
         translations.columnconfigure(1, weight=1)
         translations.rowconfigure(1, weight=1)
         ttk.Label(translations, text="ES · Lo que dices").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        ttk.Label(translations, text="EN · Traducción hablada por Gemini").grid(
+        ttk.Label(translations, textvariable=self.output_heading_var).grid(
             row=0, column=1, sticky="w", padx=(8, 0)
         )
         self.es_text = self._transcript_box(translations, row=1, column=0)
@@ -184,27 +199,37 @@ class TranslatorWindow:
         if input_index is None or output_index is None:
             messagebox.showerror("Faltan dispositivos", "Selecciona un micrófono y una salida de audio.")
             return
+        target_language = self.target_languages.get(self.target_var.get())
+        if target_language is None:
+            messagebox.showerror("Falta idioma", "Selecciona un idioma de destino.")
+            return
 
         self.stop_event = threading.Event()
         self.start_button.configure(state="disabled")
         self.stop_button.configure(state="normal")
         self.input_combo.configure(state="disabled")
         self.output_combo.configure(state="disabled")
+        self.target_combo.configure(state="disabled")
         self.refresh_button.configure(state="disabled")
         self._set_status("Iniciando…")
         self._append(self.es_text, "— Sesión nueva —")
         self._append(self.en_text, "— New session —")
         self.worker = threading.Thread(
             target=self._run_worker,
-            args=(Devices(input_index, output_index), self.stop_event),
+            args=(Devices(input_index, output_index), self.stop_event, target_language),
             name="livevoice-translator",
             daemon=True,
         )
         self.worker.start()
 
-    def _run_worker(self, devices: Devices, stop_event: threading.Event) -> None:
+    def _run_worker(
+        self, devices: Devices, stop_event: threading.Event, target_language: str
+    ) -> None:
         try:
-            asyncio.run(run(devices, True, self._enqueue_event, stop_event))
+            asyncio.run(run(
+                devices, True, self._enqueue_event, stop_event,
+                target_language=target_language,
+            ))
         except Exception as exc:
             self._enqueue_event("error", str(exc))
         finally:
@@ -261,7 +286,14 @@ class TranslatorWindow:
         self.stop_button.configure(state="disabled")
         self.input_combo.configure(state="readonly")
         self.output_combo.configure(state="readonly")
+        self.target_combo.configure(state="readonly")
         self.refresh_button.configure(state="normal")
+
+    def _update_output_heading(self, _event=None) -> None:
+        language = self.target_languages.get(self.target_var.get(), "en")
+        self.output_heading_var.set(
+            f"{language.upper()} · Traducción hablada por Gemini ({LANGUAGE_NAMES[language]})"
+        )
 
     def _on_close(self) -> None:
         if self.worker and self.worker.is_alive():

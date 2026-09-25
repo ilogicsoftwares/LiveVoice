@@ -31,6 +31,12 @@ Hablas español al micrófono físico. Gemini Live Translate devuelve audio en i
    python translator.py --input 1 --output 5
    ```
 
+   El idioma destino es inglés por defecto. Para elegir otro idioma, pasa su
+   código BCP-47 con `--target-language`, por ejemplo `--target-language fr`
+   para francés o `--target-language ja` para japonés. Consulta todos los
+   códigos aceptados con `python translator.py --list-languages`. Si usas el
+   lanzador, puedes pasar la misma opción: `start_cli.bat --target-language fr`.
+
    En este equipo (comprobado el 24/09/2026), funcionan `--input 14` para el
    micrófono BlackShark V3 X y `--output 21` para CABLE Input. Son los
    dispositivos Windows DirectSound. Los índices pueden cambiar tras reiniciar
@@ -50,14 +56,14 @@ Con `GEMINI_API_KEY` configurada en el entorno, inicia la aplicación de escrito
 python translator_gui.py
 ```
 
-La ventana permite elegir el micrófono y la salida, iniciar o detener la traducción y ver los fragmentos de transcripción en español e inglés. En Teams selecciona **CABLE Output** como micrófono. También se puede seguir usando `translator.py` desde la línea de comandos.
+La ventana permite elegir el micrófono, la salida y el idioma destino, iniciar o detener la traducción y ver las transcripciones. El destino predeterminado es inglés; están disponibles los idiomas admitidos por Gemini Live Translate. En Teams selecciona **CABLE Output** como micrófono. También se puede seguir usando `translator.py` desde la línea de comandos.
 
 ## Comprobación y límites
 
 - La entrada a Gemini es PCM mono de 16 kHz en bloques de 100 ms; la salida es PCM mono de 24 kHz. El programa verifica que Windows admita ambas frecuencias en los dispositivos escogidos.
 - La app muestra transcripción de entrada y de salida para detectar errores. Las transcripciones pueden llegar en fragmentos y no son un historial consolidado.
 - La salida **no se reproduce en tus audífonos**: va al cable virtual. Para escucharla, puedes activar temporalmente “Escuchar este dispositivo” en las propiedades de grabación de CABLE Output en Windows; esto puede añadir demora. En Teams, usa una llamada de prueba para comprobar lo que reciben los demás.
-- El idioma de salida está fijado en inglés; si hablas inglés, el modelo queda en silencio (`echo_target_language=False`).
+- Si hablas en el idioma destino, el modelo queda en silencio (`echo_target_language=False`).
 - Usa audífonos para el audio de Teams. Evita que la voz inglesa o los demás participantes se filtren al micrófono físico.
 - Esta app no graba audio ni incluye API keys en el paquete. La API de Gemini necesita internet, acceso al modelo y puede generar costes. El modelo es *preview*.
 - Si el hardware no acepta 16 kHz/24 kHz directamente, configura un dispositivo que acepte esas tasas o añade remuestreo en una siguiente versión.
